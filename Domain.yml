@@ -1,1 +1,41 @@
+version: "2.0"
+
+intents:
+  - greet
+  - ask_good_books
+  - provide_book
+  - provide_opinion
+  - ask_opinion
+  - goodbye
+
+slots:
+  book:
+    type: unfeaturized
+  opinion:
+    type: unfeaturized
+
+responses:
+  utter_greeting:
+    - text: "Hello! How can I assist you today?"
+
+  utter_ask_good_books:
+    - text: "Sure! What specific book are you looking for?"
+
+  utter_book_recommendation:
+    - text: "I recommend reading '{book}' by Yuval Noah Harari. It's an excellent book that explores the history of humankind. Have you read it? What's your opinion?"
+
+  utter_ask_opinion:
+    - text: "What do you think about '{book}'?"
+
+  utter_thank_opinion:
+    - text: "Thank you for sharing your opinion! I'm glad you enjoyed it."
+
+  utter_ask_opinion_again:
+    - text: "What's your opinion on '{book}'?"
+
+  utter_acknowledge_opinion:
+    - text: "I understand. People have different perspectives on books. Thank you for sharing your opinion."
+
+  utter_goodbye:
+    - text: "Goodbye! Have a great day!"
 
