@@ -1,1 +1,39 @@
+version: "2.0"
+
+nlu:
+- intent: greet
+  examples: |
+    - Hi
+    - Hello
+    - Hey
+
+- intent: ask_good_books
+  examples: |
+    - Can you recommend some good books?
+    - I need a book recommendation
+    - What are some good books to read?
+
+- intent: provide_book
+  examples: |
+    - I recommend {book}
+    - How about {book}?
+    - Have you read {book}?
+
+- intent: provide_opinion
+  examples: |
+    - {opinion}
+    - I {opinion} the book
+    - My opinion is {opinion}
+
+- intent: ask_opinion
+  examples: |
+    - What's your opinion?
+    - Tell me what you think
+    - How do you feel about it?
+
+- intent: goodbye
+  examples: |
+    - Goodbye
+    - Bye
+    - See you later
 
