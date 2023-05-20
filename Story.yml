@@ -8,3 +8,23 @@ stories:
   - intent: ask_good_books
     action: utter_ask_good_books
  
+  - intent: provide_book
+    action:
+    - slot:
+        book: "Sapiens"
+    - utter_book_recommendation
+    - utter_ask_opinion
+  - intent: provide_opinion
+    action:
+    - slot:
+        opinion: "I loved it!"
+    - utter_thank_opinion
+  - intent: ask_opinion
+    action: utter_ask_opinion_again
+  - intent: provide_opinion
+    action:
+    - slot:
+        opinion: "It was okay"
+    - utter_acknowledge_opinion
+  - intent: goodbye
+    action: utter_goodbye
