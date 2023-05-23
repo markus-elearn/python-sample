@@ -19,3 +19,78 @@ Assistant: I understand. People have different perspectives on books. Thank you 
 User: Goodbye!
 Assistant: Goodbye! Have a great day!
 
+
+@inject ILocalStorageService localStorage
+
+<SfDashboardLayout @ref="dashboardLayout" Change="OnDashboardLayoutChange">
+    <DashboardLayoutPanels>
+        <!-- Define your panels here -->
+        <DashboardLayoutPanel ID="panel1" MinHeight="150" MinWidth="150">
+            <!-- Panel 1 content goes here -->
+        </DashboardLayoutPanel>
+        <DashboardLayoutPanel ID="panel2" MinHeight="150" MinWidth="150">
+            <!-- Panel 2 content goes here -->
+        </DashboardLayoutPanel>
+        <!-- Add more panels as needed -->
+    </DashboardLayoutPanels>
+</SfDashboardLayout>
+
+@code {
+    private SfDashboardLayout dashboardLayout;
+    private List<PanelSettings> panelSettingsList;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            panelSettingsList = await localStorage.GetItemAsync<List<PanelSettings>>("PanelSettingsList");
+            if (panelSettingsList != null)
+            {
+                foreach (var panelSettings in panelSettingsList)
+                {
+                    var panel = dashboardLayout.GetPanel(panelSettings.PanelId);
+                    if (panel != null)
+                    {
+                        panel.SetProperties(new DashboardLayoutPanelSettings
+                        {
+                            Top = panelSettings.Top,
+                            Left = panelSettings.Left,
+                            Width = panelSettings.Width,
+                            Height = panelSettings.Height
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    private async Task OnDashboardLayoutChange(DashboardLayoutChangeArgs args)
+    {
+        panelSettingsList = new List<PanelSettings>();
+
+        foreach (var panel in args.Panels)
+        {
+            panelSettingsList.Add(new PanelSettings
+            {
+                PanelId = panel.ID,
+                Top = panel.Top,
+                Left = panel.Left,
+                Width = panel.Width,
+                Height = panel.Height
+            });
+        }
+
+        await localStorage.SetItemAsync("PanelSettingsList", panelSettingsList);
+    }
+}
+
+
+public class PanelSettings
+{
+    public string PanelId { get; set; }
+    public double Top { get; set; }
+    public double Left { get; set; }
+    public double Width { get; set; }
+    public double Height { get; set; }
+}
+
