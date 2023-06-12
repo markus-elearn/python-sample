@@ -1,1 +1,47 @@
 
+option = {
+  parallelAxis: [
+    { dim: 0, name: 'Axis 0' },
+    { dim: 1, name: 'Axis 1' },
+    { dim: 2, name: 'Axis 2' },
+    { dim: 3, name: 'Axis 3' },
+    { dim: 4, name: 'Axis 4' }
+  ],
+  parallel: {
+    left: '5%',
+    right: '10%',
+    bottom: '15%',
+    top: '10%',
+    parallelAxisDefault: {
+      type: 'value',
+      nameLocation: 'end',
+      nameGap: 20
+    }
+  },
+  series: [
+    {
+      type: 'scatter',
+      dimensions: ['Axis 0', 'Axis 1'],
+      data: [
+        [1, 2],
+        [3, 4],
+        [5, 6],
+        [7, 8],
+        [9, 10]
+      ]
+    },
+    {
+      type: 'scatter',
+      dimensions: ['Axis 0', 'Axis 2'],
+      data: [
+        [2, 3],
+        [4, 5],
+        [6, 7],
+        [8, 9],
+        [10, 11]
+      ]
+    },
+    // Repeat the scatter series for other combinations of dimensions
+    // ...
+  ]
+};
