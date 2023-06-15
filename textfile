@@ -52,6 +52,9 @@ public class Program
                     // Process the remaining rows in the last batch
                     if (currentIndex > 0)
                     {
+                        // Resize the batch array to match the actual number of rows
+                        Array.Resize(ref batch, currentIndex);
+                        
                         await ProcessBatchAsync(batch, currentIndex);
                     }
 
