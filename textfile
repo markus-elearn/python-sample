@@ -1,47 +1,84 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using DuckDb;
 
-option = {
-  parallelAxis: [
-    { dim: 0, name: 'Axis 0' },
-    { dim: 1, name: 'Axis 1' },
-    { dim: 2, name: 'Axis 2' },
-    { dim: 3, name: 'Axis 3' },
-    { dim: 4, name: 'Axis 4' }
-  ],
-  parallel: {
-    left: '5%',
-    right: '10%',
-    bottom: '15%',
-    top: '10%',
-    parallelAxisDefault: {
-      type: 'value',
-      nameLocation: 'end',
-      nameGap: 20
+public class Program
+{
+    public static async Task Main()
+    {
+        // Create a DuckDB connection and execute a query
+        using (var connection = new DuckDBConnection("your_connection_string"))
+        {
+            await connection.OpenAsync();
+
+            using (var command = new DuckDBCommand("SELECT column1, column2 FROM your_table", connection))
+            {
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    // Define the batch size to fetch at a time
+                    int batchSize = 1000;
+
+                    // Process the data in parallel batches
+                    var tasks = new List<Task>();
+                    var batch = new object[batchSize][];
+                    int currentIndex = 0;
+
+                    while (await reader.ReadAsync())
+                    {
+                        // Retrieve the values for the current row
+                        object[] data = new object[2];
+                        reader.GetValues(data);
+
+                        // Process the data or do something else
+                        tasks.Add(ProcessDataAsync(data));
+
+                        // Store the data in the batch
+                        batch[currentIndex] = data;
+                        currentIndex++;
+
+                        // Check if the batch size limit is reached
+                        if (currentIndex >= batchSize)
+                        {
+                            // Process the current batch in parallel
+                            await ProcessBatchAsync(batch, currentIndex);
+
+                            // Reset the batch and index for the next iteration
+                            batch = new object[batchSize][];
+                            currentIndex = 0;
+                        }
+                    }
+
+                    // Process the remaining rows in the last batch
+                    if (currentIndex > 0)
+                    {
+                        await ProcessBatchAsync(batch, currentIndex);
+                    }
+
+                    // Wait for all tasks to complete
+                    await Task.WhenAll(tasks);
+                }
+            }
+        }
     }
-  },
-  series: [
+
+    private static async Task ProcessDataAsync(object[] data)
     {
-      type: 'scatter',
-      dimensions: ['Axis 0', 'Axis 1'],
-      data: [
-        [1, 2],
-        [3, 4],
-        [5, 6],
-        [7, 8],
-        [9, 10]
-      ]
-    },
+        // Process the read data asynchronously
+        await Task.Delay(100); // Placeholder for actual processing logic
+    }
+
+    private static async Task ProcessBatchAsync(object[][] batch, int count)
     {
-      type: 'scatter',
-      dimensions: ['Axis 0', 'Axis 2'],
-      data: [
-        [2, 3],
-        [4, 5],
-        [6, 7],
-        [8, 9],
-        [10, 11]
-      ]
-    },
-    // Repeat the scatter series for other combinations of dimensions
-    // ...
-  ]
-};
+        var tasks = new List<Task>();
+
+        for (int i = 0; i < count; i++)
+        {
+            // Process each data item asynchronously
+            tasks.Add(ProcessDataAsync(batch[i]));
+        }
+
+        // Wait for the tasks in the batch to complete
+        await Task.WhenAll(tasks);
+    }
+}
