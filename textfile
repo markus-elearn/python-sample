@@ -21,8 +21,7 @@ public class Program
 
                     // Process the data in parallel batches
                     var tasks = new List<Task>();
-                    var batch = new object[batchSize][];
-                    int currentIndex = 0;
+                    var batch = new List<object[]>();
 
                     while (await reader.ReadAsync())
                     {
@@ -34,28 +33,23 @@ public class Program
                         tasks.Add(ProcessDataAsync(data));
 
                         // Store the data in the batch
-                        batch[currentIndex] = data;
-                        currentIndex++;
+                        batch.Add(data);
 
                         // Check if the batch size limit is reached
-                        if (currentIndex >= batchSize)
+                        if (batch.Count >= batchSize)
                         {
                             // Process the current batch in parallel
-                            await ProcessBatchAsync(batch, currentIndex);
+                            await ProcessBatchAsync(batch);
 
-                            // Reset the batch and index for the next iteration
-                            batch = new object[batchSize][];
-                            currentIndex = 0;
+                            // Clear the batch for the next iteration
+                            batch.Clear();
                         }
                     }
 
                     // Process the remaining rows in the last batch
-                    if (currentIndex > 0)
+                    if (batch.Count > 0)
                     {
-                        // Resize the batch array to match the actual number of rows
-                        Array.Resize(ref batch, currentIndex);
-                        
-                        await ProcessBatchAsync(batch, currentIndex);
+                        await ProcessBatchAsync(batch);
                     }
 
                     // Wait for all tasks to complete
@@ -71,14 +65,14 @@ public class Program
         await Task.Delay(100); // Placeholder for actual processing logic
     }
 
-    private static async Task ProcessBatchAsync(object[][] batch, int count)
+    private static async Task ProcessBatchAsync(List<object[]> batch)
     {
         var tasks = new List<Task>();
 
-        for (int i = 0; i < count; i++)
+        foreach (var data in batch)
         {
             // Process each data item asynchronously
-            tasks.Add(ProcessDataAsync(batch[i]));
+            tasks.Add(ProcessDataAsync(data));
         }
 
         // Wait for the tasks in the batch to complete
