@@ -1,81 +1,30 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using DuckDb;
+# Use the official .NET Core 7 SDK image as the base image
+FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 
-public class Program
-{
-    public static async Task Main()
-    {
-        // Create a DuckDB connection and execute a query
-        using (var connection = new DuckDBConnection("your_connection_string"))
-        {
-            await connection.OpenAsync();
+RUN echo azure
 
-            using (var command = new DuckDBCommand("SELECT column1, column2 FROM your_table", connection))
-            {
-                using (var reader = await command.ExecuteReaderAsync())
-                {
-                    // Define the batch size to fetch at a time
-                    int batchSize = 1000;
+# Set the working directory inside the container
+WORKDIR /app
 
-                    // Process the data in parallel batches
-                    var tasks = new List<Task>();
-                    var batch = new List<object[]>();
+# Copy the source code into the container
+COPY . .
 
-                    while (await reader.ReadAsync())
-                    {
-                        // Retrieve the values for the current row
-                        object[] data = new object[2];
-                        reader.GetValues(data);
+WORKDIR /app/DashboardApiLiveagent
+# Build the .NET Core application inside the container
+RUN dotnet restore
+RUN dotnet publish -r linux-x64 -c Release -o out
 
-                        // Process the data or do something else
-                        tasks.Add(ProcessDataAsync(data));
+# Create a new image using the .NET Core runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS runtime
 
-                        // Store the data in the batch
-                        batch.Add(data);
+# Set the working directory inside the container
+WORKDIR /app
 
-                        // Check if the batch size limit is reached
-                        if (batch.Count >= batchSize)
-                        {
-                            // Process the current batch in parallel
-                            await ProcessBatchAsync(batch);
+# Copy the built application from the previous stage
+COPY --from=build /app/DashboardApiLiveagent/out .
 
-                            // Clear the batch for the next iteration
-                            batch.Clear();
-                        }
-                    }
+# Expose the port that the application listens on (change this to your application's port)
+EXPOSE 80
 
-                    // Process the remaining rows in the last batch
-                    if (batch.Count > 0)
-                    {
-                        await ProcessBatchAsync(batch);
-                    }
-
-                    // Wait for all tasks to complete
-                    await Task.WhenAll(tasks);
-                }
-            }
-        }
-    }
-
-    private static async Task ProcessDataAsync(object[] data)
-    {
-        // Process the read data asynchronously
-        await Task.Delay(100); // Placeholder for actual processing logic
-    }
-
-    private static async Task ProcessBatchAsync(List<object[]> batch)
-    {
-        var tasks = new List<Task>();
-
-        foreach (var data in batch)
-        {
-            // Process each data item asynchronously
-            tasks.Add(ProcessDataAsync(data));
-        }
-
-        // Wait for the tasks in the batch to complete
-        await Task.WhenAll(tasks);
-    }
-}
+# Define the command to run your application when the container starts
+ENTRYPOINT ["dotnet", "DashboardApiLiveagent.dll"]
