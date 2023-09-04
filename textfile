@@ -1,35 +1,41 @@
-function appendToFormatter(obj, stringToAppend) {
-    if (typeof obj === 'object') {
-        if (Array.isArray(obj)) {
-            for (let item of obj) {
-                appendToFormatter(item, stringToAppend);
-            }
-        } else {
-            for (let key in obj) {
-                if (key === 'formatter') {
-                    obj[key] += stringToAppend;
-                } else {
-                    appendToFormatter(obj[key], stringToAppend);
-                }
-            }
-        }
-    }
-}
+// Create an instance of ECharts
+var myChart = echarts.init(document.getElementById('chart-container'));
 
-// Your JSON object
-const yourJsonObject = {
-    key1: {
-        formatter: 'old_value',
-        other_key: 'other_value'
+// Define your data for the two bar charts
+var data1 = [/* Your data for chart 1 */];
+var data2 = [/* Your data for chart 2 */];
+
+// Create the first bar chart
+var option = {
+    grid: {
+        top: '10%', // Adjust the top margin to create a row layout
+        left: '3%',
+        right: '3%',
+        bottom: '10%',
+        containLabel: true
     },
-    key2: [
-        {
-            formatter: 'old_value',
-            nested_key: 'nested_value'
-        }
-    ]
+    xAxis: {
+        type: 'category',
+        data: ['Category 1', 'Category 2', 'Category 3', 'Category 4', 'Category 5']
+    },
+    yAxis: {
+        type: 'value'
+    },
+    series: [{
+        name: 'Chart 1',
+        type: 'bar',
+        data: data1
+    }]
 };
 
-const stringToAppend = '_appended';
-appendToFormatter(yourJsonObject, stringToAppend);
-console.log(JSON.stringify(yourJsonObject, null, 2));
+// Create the second bar chart
+option.xAxis.gridIndex = 1; // Use a separate x-axis for the second chart
+option.yAxis.gridIndex = 1; // Use a separate y-axis for the second chart
+option.series.push({
+    name: 'Chart 2',
+    type: 'bar',
+    data: data2
+});
+
+// Set the option and render the chart
+myChart.setOption(option);
