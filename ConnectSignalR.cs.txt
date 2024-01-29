@@ -1,0 +1,198 @@
+﻿using BotReceiver.Model;
+using BotReceiver.Models;
+using BotReceiver.Respository;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Bot.Builder;
+using Microsoft.Bot.Builder.AI.Luis;
+using Microsoft.Bot.Schema;
+using Newtonsoft.Json;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Timers;
+
+namespace BotReceiver.Repository
+{
+    public static class ConnectSignalR
+    {
+
+        public static async Task<HubConnection> Connect(string userid, string organization, string botid)
+        {
+            string token = JWT.EncodeBearer(userid, organization, botid);
+
+            var connection = new HubConnectionBuilder()
+                .WithUrl(Startup.Configuration["url:chathub"] + "/chathub?token=" + token)
+                .Build();
+
+            //connection.KeepAliveInterval.Add(10);
+            //+"&userid=" + userid
+
+            if (connection.State == HubConnectionState.Disconnected)
+            {
+                try
+                {
+                    await connection.StartAsync();
+                    return connection;
+                }
+                catch (Exception e)
+                {
+                    return connection;
+                }
+            }
+
+            return connection;
+        }
+        public static async Task Receiver(HubConnection connection, ITurnContext turnContext, BotState userState, string startmsg = "")
+        {
+            string clientId = Guid.NewGuid().ToString();
+
+            //all responses from liveagent are recived as card json
+            connection.On<string>("RoomReceiver", async (message) =>
+            {
+                StaticSignalRHub.WaitingTimer.Remove(turnContext.Activity.From.Id, out Timer timer);
+                if (timer != null)
+                    timer.Enabled = false;
+
+                await SendUserMessage(turnContext, AdaptiveCardWrapper.GetCardAsAttachment(message));
+
+                //var text = MessageFactory.Text(message, message, InputHints.IgnoringInput);
+                //await turnContext.SendActivityAsync(text);
+            });
+
+            //connection.On<string>("ParticipantDisconnected", async (message) =>
+            //{
+            //    await SendUserMessage(turnContext, AdaptiveCardWrapper.GetCardAsAttachment(message));
+
+            //    //var text = MessageFactory.Text(message, message, InputHints.IgnoringInput);
+            //    //await turnContext.SendActivityAsync(text);
+
+            //    StaticSignalRHub.WaitingTimer.Remove(turnContext.Activity.From.Id, out Timer timer);
+            //    if (timer != null)
+            //        timer.Enabled = false;
+            //});
+
+            connection.On<string, int, int, int>("Busy", async (message, attempt, limit, timespan) =>
+            {
+                if (attempt == 1)
+                {
+                    Timer timer = new Timer(timespan);
+                    timer.Elapsed += async (Object source, ElapsedEventArgs e) =>
+                    {
+                        await connection.InvokeAsync("BusyResponse", ++attempt);
+                    };
+                    timer.Enabled = true;
+                    StaticSignalRHub.WaitingTimer.TryAdd(turnContext.Activity.From.Id, timer);
+                }
+                else if (attempt >= limit)
+                {
+                    SQLLogger.SQLLogger.UpdateLiveagent(turnContext.Activity.From.Id, string.Empty, Constants.Unconnected, 0);
+                    StaticSignalRHub.WaitingTimer.Remove(turnContext.Activity.From.Id, out Timer timer);
+                    if (timer != null)
+                        timer.Enabled = false;
+                }
+                await SendUserMessage(turnContext, AdaptiveCardWrapper.GetCardAsAttachment(message));
+
+                //var text = MessageFactory.Text(message, message, InputHints.IgnoringInput);
+                //await turnContext.SendActivityAsync(text);
+
+            });
+
+            connection.On<bool>("Disconnect", async (isAgentConnected) =>
+            {
+                try
+                {
+                    //Task.Run(async () => await connection.StopAsync());
+ 
+                    StaticSignalRHub.Connections.Remove(turnContext.Activity.From.Id, out HubConnection conn);
+                    StaticSignalRHub.WaitingTimer.Remove(turnContext.Activity.From.Id, out Timer timer);
+                    if (timer != null)
+                        timer.Enabled = false;
+
+                    if(isAgentConnected)
+                        await SendUserMessage(turnContext, AdaptiveCardWrapper.AgentFeedbackCard());
+
+                    SQLLogger.SQLLogger.EndLiveagent(turnContext.Activity.From.Id);
+                }
+                catch (Exception e)
+                {
+                    var c = e;
+                }
+                finally
+                {
+                    connection.StopAsync();
+                    await connection.DisposeAsync();
+                }
+            });
+
+            connection.Closed += async error =>
+            {
+                try
+                {
+                    if (connection.State == HubConnectionState.Disconnected)
+                    {
+                        SQLLogger.SQLLogger.EndLiveagent(turnContext.Activity.From.Id);
+                        StaticSignalRHub.Connections.Remove(turnContext.Activity.From.Id, out HubConnection conn);
+                        StaticSignalRHub.WaitingTimer.Remove(turnContext.Activity.From.Id, out Timer timer);
+                        if (timer != null)
+                            timer.Enabled = false;
+                        //string card = AdaptiveCardWrapper.GenerateWrapperCard(CodeHelper.ToLiteral("Disonnected : " + error?.Message));
+                        //await SendUserMessage(turnContext, card);
+
+                        //var text = MessageFactory.Text("Disonnected " + error?.Message, "Disonnected " + error?.Message, InputHints.IgnoringInput);
+                        //await turnContext.SendActivityAsync(text);
+                    }
+                }
+                catch (Exception e)
+                {
+
+                }
+                finally
+                {
+                    await connection.DisposeAsync();
+                }
+                // Notify users the connection has been closed or manually try to restart the connection.
+
+                //return Task.CompletedTask;
+            };
+
+            connection.On<string>("onError", async (message) =>
+            {
+                string card = AdaptiveCardWrapper.GenerateWrapperCard("Error: " + message);
+                await SendUserMessage(turnContext, AdaptiveCardWrapper.GetCardAsAttachment(card));
+                //await turnContext.SendActivityAsync("Some error happened - " + message);
+            });
+
+            //await connection.InvokeAsync("ConnectToAgent", client, 1);
+
+            Session state = await userState.CreateProperty<Session>(nameof(Session)).GetAsync(turnContext, () => new Session());
+            await connection.InvokeAsync("AddToQueue", clientId, turnContext.Activity.From.Id, state.Organization, state.Email?? Constants.AnonymousEmail, state.Username?? Constants.AnonymousUserName, startmsg);
+
+            //await connection.InvokeAsync("CheckQueue", client, 1);
+
+        }
+        public static async Task SendMessage(HubConnection connection, string content) //text or adaptive card
+        {
+            await connection.InvokeAsync("SendMessage", content, string.Empty);
+        }
+        public static async Task EndChat(HubConnection connection)
+        {
+            await connection.InvokeAsync("UserEndChat");
+        }
+    
+        private static async Task SendUserMessage(ITurnContext turnContext, Attachment attachment)
+        {
+            try
+            {
+                await turnContext.SendActivityAsync(MessageFactory.Attachment(attachment));
+            }
+            catch(Exception e)
+            {
+
+            }
+        }
+    }
+}
+
